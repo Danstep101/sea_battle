@@ -332,6 +332,11 @@
                 computerShipsRemaining: 5
             };
 
+            // AI state
+            let lastHit = null;
+            let searchDirection = null;
+            let possibleTargets = [];
+
             // DOM elements
             const playerBoard = document.getElementById('player-board');
             const computerBoard = document.getElementById('computer-board');
@@ -375,6 +380,11 @@
 
                 // Hide restart button initially
                 restartBtn.style.display = 'none';
+
+                // Reset AI state
+                lastHit = null;
+                searchDirection = null;
+                possibleTargets = [];
             }
 
             function createBoard(boardElement, isComputer) {
@@ -739,7 +749,7 @@
                     gameState.currentPlayer = 'computer';
                     
                     // Computer's turn after delay
-                    setTimeout(computerTurn, 1000);
+                    setTimeout(computerTurn, 800);
                 }
             }
 
@@ -783,20 +793,38 @@
                 gameState.computerShots++;
                 updateStats();
                 
-                // Simple AI: random shots but smarter after hits
                 const { x, y } = findComputerTarget();
                 const cell = playerBoard.querySelector(`[data-x="${x}"][data-y="${y}"]`);
                 
                 if (gameState.playerBoard[y][x] === 1) {
                     // Hit
                     cell.classList.add('hit');
-                    gameState.playerBoard[y][x] = 2; // Mark as hit
-                    setMessage('Противник попал по вашему кораблю!');
+                    gameState.playerBoard[y][x] = 2;
+                    
+                    // If this is first hit - remember position
+                    if (!lastHit) {
+                        lastHit = { x, y };
+                        setMessage('Противник попал по вашему кораблю!');
+                    } 
+                    // If this is second hit - determine ship direction
+                    else if (!searchDirection) {
+                        searchDirection = {
+                            dx: x - lastHit.x,
+                            dy: y - lastHit.y
+                        };
+                        setMessage('Противник повредил ваш корабль!');
+                    } 
+                    // If direction is known - continue in that direction
+                    else {
+                        setMessage('Противник продолжает обстрел вашего корабля!');
+                    }
                     
                     // Check if ship is sunk
                     if (isShipSunk(x, y, gameState.playerBoard)) {
                         gameState.playerShipsRemaining--;
                         setMessage('Противник потопил ваш корабль!');
+                        lastHit = null;
+                        searchDirection = null;
                         
                         if (gameState.playerShipsRemaining === 0) {
                             endGame('computer');
@@ -804,65 +832,112 @@
                         }
                     }
                     
-                    // Computer gets another turn if it hits
-                    setTimeout(computerTurn, 1000);
+                    // Computer gets another turn after hit
+                    setTimeout(computerTurn, 800);
                 } else {
                     // Miss
                     cell.classList.add('miss');
-                    gameState.playerBoard[y][x] = 3; // Mark as miss
+                    gameState.playerBoard[y][x] = 3;
+                    
+                    // If we were in search mode - change direction
+                    if (lastHit && searchDirection) {
+                        searchDirection = {
+                            dx: -searchDirection.dx,
+                            dy: -searchDirection.dy
+                        };
+                    }
+                    
                     setMessage('Противник промахнулся!');
                     gameState.currentPlayer = 'player';
                 }
             }
 
             function findComputerTarget() {
-                // First, check if there's any hit not fully processed
-                for (let y = 0; y < 10; y++) {
-                    for (let x = 0; x < 10; x++) {
-                        if (gameState.playerBoard[y][x] === 2) { // Hit
-                            // Check adjacent cells for possible targets
-                            const directions = [
-                                { dx: 1, dy: 0 },
-                                { dx: -1, dy: 0 },
-                                { dx: 0, dy: 1 },
-                                { dx: 0, dy: -1 }
-                            ];
+                // If there's an unfinished target (last hit)
+                if (lastHit) {
+                    // If search direction is not determined
+                    if (!searchDirection) {
+                        // Check all 4 directions from last hit
+                        const directions = [
+                            { dx: 1, dy: 0 },  // right
+                            { dx: -1, dy: 0 }, // left
+                            { dx: 0, dy: 1 },  // down
+                            { dx: 0, dy: -1 }  // up
+                        ];
+                        
+                        // Collect possible targets around the hit
+                        possibleTargets = [];
+                        
+                        for (const dir of directions) {
+                            const nx = lastHit.x + dir.dx;
+                            const ny = lastHit.y + dir.dy;
                             
-                            const possibleTargets = [];
-                            
-                            for (const dir of directions) {
-                                const nx = x + dir.dx;
-                                const ny = y + dir.dy;
-                                
-                                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
-                                    if (gameState.playerBoard[ny][nx] === 0) { // Not tried yet
-                                        possibleTargets.push({ x: nx, y: ny });
-                                    }
-                                }
-                            }
-                            
-                            if (possibleTargets.length > 0) {
-                                return possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+                            // Check if we can shoot at this cell
+                            if (isValidTarget(nx, ny)) {
+                                possibleTargets.push({ x: nx, y: ny });
                             }
                         }
+                        
+                        // If there are possible targets - choose random one
+                        if (possibleTargets.length > 0) {
+                            return possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+                        }
+                    } 
+                    // If search direction is determined
+                    else {
+                        // Continue shooting in this direction
+                        let nx = lastHit.x + searchDirection.dx;
+                        let ny = lastHit.y + searchDirection.dy;
+                        
+                        // While within bounds or until we find suitable target
+                        while (isValidTarget(nx, ny)) {
+                            return { x: nx, y: ny };
+                        }
+                        
+                        // If no more targets in this direction - change direction
+                        searchDirection = {
+                            dx: -searchDirection.dx,
+                            dy: -searchDirection.dy
+                        };
+                        
+                        nx = lastHit.x + searchDirection.dx;
+                        ny = lastHit.y + searchDirection.dy;
+                        
+                        if (isValidTarget(nx, ny)) {
+                            return { x: nx, y: ny };
+                        }
                     }
+                    
+                    // If no suitable targets found - reset search
+                    lastHit = null;
+                    searchDirection = null;
                 }
                 
-                // If no hits to follow up on, make a random shot
+                // If no active target - find random cell
+                return findRandomTarget();
+            }
+
+            function isValidTarget(x, y) {
+                // Check if cell is within bounds
+                if (x < 0 || x >= 10 || y < 0 || y >= 10) return false;
+                
+                // Check if we haven't shot at this cell yet
+                return gameState.playerBoard[y][x] === 0;
+            }
+
+            function findRandomTarget() {
                 const availableCells = [];
+                
+                // Collect all available cells
                 for (let y = 0; y < 10; y++) {
                     for (let x = 0; x < 10; x++) {
-                        if (gameState.playerBoard[y][x] === 0) { // Empty cell not tried yet
+                        if (gameState.playerBoard[y][x] === 0) {
                             availableCells.push({ x, y });
                         }
                     }
                 }
                 
-                if (availableCells.length === 0) {
-                    // Shouldn't happen as game should have ended
-                    return { x: 0, y: 0 };
-                }
-                
+                // Choose random cell
                 return availableCells[Math.floor(Math.random() * availableCells.length)];
             }
 
@@ -931,6 +1006,11 @@
                 
                 // Update stats
                 updateStats();
+                
+                // Reset AI state
+                lastHit = null;
+                searchDirection = null;
+                possibleTargets = [];
             }
 
             function setMessage(text) {
