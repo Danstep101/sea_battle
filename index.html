@@ -51,6 +51,7 @@
             margin: 8px 0;
             width: 100%;
             max-width: 1000px;
+            order: 2;
         }
 
         .board-container {
@@ -137,6 +138,7 @@
             margin: 12px 0;
             width: 100%;
             max-width: 1000px;
+            order: 1;
         }
 
         .controls {
@@ -254,6 +256,7 @@
             align-items: center;
             margin-top: 8px;
             width: 100%;
+            order: 3;
         }
 
         .stats {
@@ -283,21 +286,69 @@
 
         /* Mobile-specific adjustments */
         @media (max-width: 600px) {
-            .board-container {
-                max-width: 100%;
+            body {
+                padding: 5px;
+                justify-content: flex-start;
             }
             
             .controls-container {
-                flex-direction: column;
-                align-items: center;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding: 5px 0;
+                justify-content: flex-start;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                order: 1;
+            }
+            
+            .controls-container::-webkit-scrollbar {
+                display: none;
             }
             
             .controls, .ship-selector {
+                flex: 0 0 auto;
+                width: 90%;
+                max-width: none;
+                margin-right: 10px;
+            }
+            
+            .board-container {
                 max-width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .game-container {
+                flex-direction: column;
+                order: 2;
             }
             
             .game-board {
-                max-width: 300px;
+                max-width: 100%;
+            }
+            
+            .game-info {
+                order: 3;
+                margin-top: 10px;
+            }
+            
+            .stats {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                justify-content: flex-start;
+                padding: 5px 0;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            
+            .stats::-webkit-scrollbar {
+                display: none;
+            }
+            
+            .stat-item {
+                flex: 0 0 auto;
+                min-width: 120px;
+                margin-right: 8px;
             }
         }
 
@@ -311,18 +362,6 @@
 </head>
 <body>
     <h1>Морской бой</h1>
-    
-    <div class="game-container">
-        <div class="board-container">
-            <h2>Ваше поле</h2>
-            <div class="game-board" id="player-board"></div>
-        </div>
-        
-        <div class="board-container">
-            <h2>Противник</h2>
-            <div class="game-board" id="computer-board"></div>
-        </div>
-    </div>
     
     <div class="controls-container">
         <div class="controls">
@@ -338,6 +377,18 @@
                 <!-- JS will populate this -->
             </div>
             <button class="orientation-btn" id="rotate-btn">Повернуть (Горизонтально)</button>
+        </div>
+    </div>
+    
+    <div class="game-container">
+        <div class="board-container">
+            <h2>Ваше поле</h2>
+            <div class="game-board" id="player-board"></div>
+        </div>
+        
+        <div class="board-container">
+            <h2>Противник</h2>
+            <div class="game-board" id="computer-board"></div>
         </div>
     </div>
     
@@ -359,6 +410,7 @@
     </div>
 
     <script>
+        // [Весь JavaScript код остаётся без изменений]
         document.addEventListener('DOMContentLoaded', function() {
             // Game state
             const gameState = {
